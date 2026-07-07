@@ -376,15 +376,17 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // const firebaseConfig = {
-  apiKey: "AIzaSyDn7egi886iyaHN3vLiv_iTslYxtkDAi1o",
-  authDomain: "pro-parqueadero.firebaseapp.com",
-  databaseURL: "https://pro-parqueadero-default-rtdb.firebaseio.com",
-  projectId: "pro-parqueadero",
-  storageBucket: "pro-parqueadero.firebasestorage.app",
-  messagingSenderId: "452274870418",
-  appId: "1:452274870418:web:78771c025e6439d1536e4b"
-};
+    // Credenciales oficiales provistas por el usuario
+    const firebaseConfig = {
+        apiKey: "AIzaSyDn7egi886iyaHN3vLiv_iTslYxtkDAi1o",
+        authDomain: "pro-parqueadero.firebaseapp.com",
+        databaseURL: "https://pro-parqueadero-default-rtdb.firebaseio.com",
+        projectId: "pro-parqueadero",
+        storageBucket: "pro-parqueadero.firebasestorage.app",
+        messagingSenderId: "452274870418",
+        appId: "1:452274870418:web:78771c025e6439d1536e4b"
+    };
+
     // Inicializar Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
@@ -394,7 +396,7 @@
     let historialPagados = [];
     let clientesMensuales = [];
     let vehiculoSeleccionadoParaCobro = null;
-    let keyEdicionMensual = null; // Guardará el ID único de Firebase para editar
+    let keyEdicionMensual = null;
 
     const TARIFAS_BASE = {
         carro: { primera: 4000, adicional: 2000, modo: 'por_hora' },
@@ -403,7 +405,7 @@
         monopatin: { primera: 2500, adicional: 0, modo: 'jornada' }
     };
 
-    // Escuchadores en Tiempo Real de Firebase (Sustituyen al LocalStorage)
+    // Escuchadores en Tiempo Real de Firebase
     onValue(ref(db, 'activos'), (snapshot) => {
         const data = snapshot.val();
         vehiculosActivos = data ? Object.keys(data).map(key => ({ idCloud: key, ...data[key] })) : [];
@@ -420,10 +422,10 @@
         const data = snapshot.val();
         clientesMensuales = data ? Object.keys(data).map(key => ({ idCloud: key, ...data[key] })) : [];
         actualizarTablaMensuales();
-        actualizarTablaActivos(); // Refrescar avisos visuales
+        actualizarTablaActivos();
     });
 
-    // Funciones básicas de interfaz adaptadas
+    // Funciones asignadas a 'window' para que el HTML plano pueda llamarlas
     window.manejarCambioTipo = function() {
         const tipo = document.querySelector('input[name="tipoVehiculo"]:checked').value;
         const config = TARIFAS_BASE[tipo];
@@ -459,8 +461,7 @@
         document.getElementById('avisoMensualIngreso').style.display = esMensual ? 'inline' : 'none';
     }
 
-    // --- ACCIONES CON FIREBASE ---
-
+    // Acciones del Parqueadero
     window.registrarEntrada = function() {
         const placa = document.getElementById('placa').value.trim().toUpperCase();
         const fechaE = document.getElementById('fechaEntrada').value;
@@ -494,7 +495,6 @@
             tarifa1, tarifaAdicional
         };
 
-        // Guardar directamente en la nube
         push(ref(db, 'activos'), nuevoVehiculo);
 
         document.getElementById('placa').value = '';
@@ -556,7 +556,6 @@
             salida, montoNumerico: totalPagar, tiempoCalculado: `${Math.floor(diferenciaMinutos / 60)}h ${diferenciaMinutos % 60}m`
         };
 
-        // Guardar en historial de la nube y remover de activos en la nube
         push(ref(db, 'historial'), nuevoHistorial);
         remove(ref(db, `activos/${v.idCloud}`));
 
@@ -566,12 +565,11 @@
 
     function calcularValor(modo, minutos, t1, tA) {
         if (modo === 'jornada') return t1;
-        const horas = Math.ceil(minutos / 60);
+        const horas = Math.ceil(minutos / 60); // Redondeo hacia arriba para la siguiente hora completa
         return horas > 0 ? t1 + (horas > 1 ? (horas - 1) * tA : 0) : 0;
     }
 
-    // --- SECCIÓN MENSUALES CLOUD ---
-
+    // Mensualidades en la nube
     window.registrarMensual = function() {
         const nombreInput = document.getElementById('mNombre').value.trim();
         const placa = document.getElementById('mPlaca').value.trim().toUpperCase();
@@ -586,7 +584,6 @@
         const nombre = nombreInput.toUpperCase();
 
         if (keyEdicionMensual !== null) {
-            // Modificar en la nube usando su clave única
             set(ref(db, `mensuales/${keyEdicionMensual}`), { nombre, placa, telefono, fechaInicio });
             keyEdicionMensual = null;
             
@@ -631,7 +628,6 @@
         if (confirm(`¿Confirmas la RENOVACIÓN de la mensualidad para ${m.nombre}?`)) {
             const hoy = new Date();
             const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
-            
             set(ref(db, `mensuales/${idCloud}/fechaInicio`), hoyStr);
         }
     }
@@ -657,8 +653,7 @@
         }
     }
 
-    // --- RENDERIZADO DE TABLAS ---
-
+    // Renderizado interno de las tablas vinculadas
     function actualizarTablaActivos() {
         const tbody = document.getElementById('tablaActivos');
         tbody.innerHTML = '';
@@ -730,13 +725,14 @@
         });
     }
 
-    // Ejecuciones iniciales por defecto al arrancar
+    // Arranque inicial
     window.ponerTiempoActualIngreso();
     window.manejarCambioTipo();
+    window.establecerFechaActualInput('mFecha');
 </script>
 
 <script>
-    // Buscador global (se mantiene en script normal)
+    // Buscador global síncrono
     function filtrarTablas() {
         const query = document.getElementById('buscadorGlobal').value.trim().toUpperCase();
         document.querySelectorAll('#tablaActivos tr, #tablaHistorial tr').forEach(tr => {
